@@ -7,7 +7,6 @@ monkey.patch_all()
 import atexit
 import json
 import gevent
-from functools import wraps
 from redis import StrictRedis
 
 
