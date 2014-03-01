@@ -1,11 +1,13 @@
 """ZenIRCBot API"""
+# These are at the top to ensure gevent can monkey patch before
+# threading gets imported.
+from gevent import monkey
+monkey.patch_all()
+
+import atexit
 import json
 import gevent
-from gevent import monkey
 from redis import StrictRedis
-
-
-monkey.patch_all()
 
 
 def load_config(name):
@@ -100,7 +102,8 @@ class ZenIRCBot(object):
 
         """
         admin_channels = self.redis.get('zenircbot:admin_spew_channels')
-        self.send_privmsg(admin_channels, message)
+        if admin_channels:
+            self.send_privmsg(admin_channels, message)
 
     def non_blocking_redis_subscribe(self, func, args=[], kwargs={}):
         pubsub = self.get_redis_client().pubsub()
@@ -143,9 +146,14 @@ class ZenIRCBot(object):
                         elif message['data']['message'] == 'services':
                             self.send_privmsg(message['data']['sender'],
                                               service)
-            gevent.spawn(self.non_blocking_redis_subscribe,
-                         func=registration_reply,
-                         kwargs={'service': service, 'commands': commands})
+            greenlet = gevent.spawn(self.non_blocking_redis_subscribe,
+                                    func=registration_reply,
+                                    kwargs={
+                                        'service': service,
+                                        'commands': commands
+                                    })
+            # Ensures that the greenlet is cleaned up.
+            atexit.register(lambda gl: gl.kill(), greenlet)
 
     def get_redis_client(self):
         """ Get redis client using values from instantiation time."""
