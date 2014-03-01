@@ -3,6 +3,11 @@
 History
 -------
 
+2.2.6 (2014-02-28)
+++++++++++++++++++
+
+* Use atexit to make sure gevent greenlets die.
+
 2.2.5 (2014-02-26)
 ++++++++++++++++++
 
