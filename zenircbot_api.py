@@ -7,7 +7,11 @@ monkey.patch_all()
 import atexit
 import json
 import gevent
+from functools import wraps
 from redis import StrictRedis
+
+
+__version__ = '2.2.6_dev'
 
 
 def load_config(name):
@@ -21,9 +25,6 @@ def load_config(name):
     """
     with open(name) as f:
         return json.loads(f.read())
-
-
-__version__ = '2.2.6'
 
 
 class ZenIRCBot(object):
@@ -46,6 +47,7 @@ class ZenIRCBot(object):
         self.redis = StrictRedis(host=self.host,
                                  port=self.port,
                                  db=self.db)
+        self.commands = []  # list of command callbacks
 
     def send_privmsg(self, to, message):
         """Sends a message to the specified channel(s)
@@ -160,3 +162,60 @@ class ZenIRCBot(object):
         return StrictRedis(host=self.host,
                            port=self.port,
                            db=self.db)
+
+    def simple_command(self, commandstr, desc="a command", **options):
+        """ A decorator to register a command as a callback when the command
+        is triggered. The unction must take one argument, which is the message
+        text.
+
+            @zen.simple_command("ping"):
+            def ping(msg):
+                return "pong"
+
+        :param string commandstr: string to use as a command
+        :param string desc: optional description text
+
+        This should be used in conjuction with ZenIRCBot.listen() which will
+        finish the registration process and starts listening to redis for
+        messages
+        """
+
+        # make decorator, f is the wrapped function passed through **options
+        def decorator(f):
+            self.commands.append({'str': commandstr,
+                                  'desc': desc,
+                                  'name': f.__name__,
+                                  'callback': f,
+                                })
+        return decorator
+
+
+    def listen(self):
+        """ Start listening. This is blocking and should be the last line in a
+        service. Once this is called the service is running.
+        """
+
+        # actually register commands
+        self.register_commands("bot",
+            [{'name': '!'+c['str'], 'description': c['desc']} for c in self.commands]
+        )
+
+        # boilerplate pubsub listening
+        subscription = self.get_redis_client().pubsub()
+        subscription.subscribe('in')
+        for msg in subscription.listen():
+            if msg.get('type') == 'message':
+                message = json.loads(msg['data'])
+                if message['version'] == 1:
+                    if message['type'] == 'directed_privmsg':
+                        text = message['data']['message']
+
+                        # Look for any command matches in registered commands
+                        for command in self.commands:
+
+                            # match command
+                            if text.startswith(command['str']):
+
+                                # do callback and send returned value to channel
+                                self.send_privmsg(message['data']['channel'],
+                                    command['callback'](text))
