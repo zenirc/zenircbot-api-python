@@ -10,7 +10,7 @@ import gevent
 from redis import StrictRedis
 
 
-__version__ = '2.2.6_dev'
+__version__ = '2.2.7'
 
 
 def load_config(name):
@@ -32,6 +32,7 @@ class ZenIRCBot(object):
     :param string host: Redis hostname (default: 'localhost')
     :param integer port: Redis port (default: 6379)
     :param integer db: Redis DB number (default: 0)
+    :param string name: Name for the service using this instance
     :returns: ZenIRCBot instance
 
     Takes Redis server parameters to use for instantiating Redis
@@ -39,10 +40,11 @@ class ZenIRCBot(object):
 
     """
 
-    def __init__(self, host='localhost', port=6379, db=0):
+    def __init__(self, host='localhost', port=6379, db=0, name="bot"):
         self.host = host
         self.port = port
         self.db = db
+        self.service_name
         self.redis = StrictRedis(host=self.host,
                                  port=self.port,
                                  db=self.db)
@@ -173,6 +175,7 @@ class ZenIRCBot(object):
 
         :param string commandstr: string to use as a command
         :param string desc: optional description text
+        :returns: decorated function
 
         This should be used in conjuction with ZenIRCBot.listen() which will
         finish the registration process and starts listening to redis for
@@ -195,7 +198,7 @@ class ZenIRCBot(object):
         """
 
         # actually register commands
-        self.register_commands("bot",
+        self.register_commands(self.servivce_name,
             [{'name': '!'+c['str'], 'description': c['desc']} for c in self.commands]
         )
 
