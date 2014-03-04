@@ -44,7 +44,7 @@ class ZenIRCBot(object):
         self.host = host
         self.port = port
         self.db = db
-        self.service_name
+        self.service_name = name
         self.redis = StrictRedis(host=self.host,
                                  port=self.port,
                                  db=self.db)
@@ -198,7 +198,7 @@ class ZenIRCBot(object):
         """
 
         # actually register commands
-        self.register_commands(self.servivce_name,
+        self.register_commands(self.service_name,
             [{'name': '!'+c['str'], 'description': c['desc']} for c in self.commands]
         )
 
