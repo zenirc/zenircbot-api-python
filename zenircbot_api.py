@@ -189,6 +189,7 @@ class ZenIRCBot(object):
                                   'name': f.__name__,
                                   'callback': f,
                                 })
+            return f
         return decorator
 
 
